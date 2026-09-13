@@ -22,9 +22,10 @@ clean:
 	@echo "All cleaned!"
 
 lint:
-	uv run flake8 $(MODULE)
-	uv run mypy --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs $(MODULE)
+	uv run flake8 src/ && uv run mypy src/ --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 lint-strict:
-	uv run flake8 $(MODULE)
-	uv run mypy $(MODULE) --strict
+	uv run flake8 src/ && uv run mypy src/ --strict
+
+strict:
+	$(MAKE) lint-strict

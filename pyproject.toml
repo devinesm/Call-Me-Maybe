@@ -1,16 +1,16 @@
 [project]
-name = "call-me-maybe2"
+name = "call-me-maybe"
 version = "0.1.0"
-description = "Add your description here"
+description = "Call Me Maybe - LLM Function Calling Tool"
 readme = "README.md"
 authors = [
-    { name = "devinesm", email = "inesmonteirosara@gmail.com" }
+    { name = "ipinto-m", email = "ipinto-m@student.42porto.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = [
     "llm-sdk",
-    "numpy>=2.5.3",
-    "pydantic>=2.13.5",
+    "numpy",
+    "pydantic",
 ]
 
 [project.scripts]
@@ -27,3 +27,14 @@ members = [
 
 [tool.uv.sources]
 llm-sdk = { workspace = true }
+
+[tool.mypy]
+python_version = "3.14"
+explicit_package_bases = true
+mypy_path = ["llm_sdk"]
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+    "mypy>=2.3.1",
+]

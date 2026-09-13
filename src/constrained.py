@@ -1,25 +1,56 @@
-from pydantic import BaseModel
+import json
+import re
 from typing import Dict, List
+
+from pydantic import BaseModel, PrivateAttr
+
 from src.schemas import FunctionDefinition
+
+_NUM_PATTERN = re.compile(
+    r"^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?"
+)
+_PARTIAL_NUM_PATTERN = re.compile(
+    r"^-?$|^-?0\.$|^-?[1-9]\d*\.?\d*$|"
+    r"^-?(?:0|[1-9]\d*)(?:\.\d+)?[eE][+-]?\d*$"
+)
+
 
 class JSONDecoder(BaseModel):
     vocab: Dict[str, int]
     functions: List[FunctionDefinition]
 
+    _clean_vocab: Dict[int, str] = PrivateAttr(default_factory=dict)
+
+    def model_post_init(self, __context: object) -> None:
+        for token_str, token_id in self.vocab.items():
+            self._clean_vocab[token_id] = (
+                token_str.replace("Ġ", " ").replace(" ", " ")
+            )
+
+    def get_clean_token(self, token_id: int) -> str:
+        return self._clean_vocab.get(token_id, "")
+
     def get_allowed_tokens(self, generated_text: str) -> List[int]:
         allowed_ids = []
 
-        for token_str, token_id in self.vocab.items():
-            clean_token = token_str.replace("Ġ", " ")
+        for token_id, clean_token in self._clean_vocab.items():
             proposed_text = generated_text + clean_token
-
             if self.is_valid_prefix(proposed_text):
                 allowed_ids.append(token_id)
 
         if not allowed_ids:
-            return list(self.vocab.values())
+            raise ValueError(
+                f"Deadlock! LLM tentou caminho inválido em: {generated_text}"
+            )
 
         return allowed_ids
+
+    def is_complete(self, text: str) -> bool:
+        try:
+            json.loads(text)
+            return True
+        except json.JSONDecodeError:
+            return False
 
     def is_valid_prefix(self, text: str) -> bool:
         base_prefix = '{"name": "'
@@ -46,7 +77,9 @@ class JSONDecoder(BaseModel):
 
         return False
 
-    def is_valid_params_prefix(self, params_text: str, func: FunctionDefinition) -> bool:
+    def is_valid_params_prefix(
+        self, params_text: str, func: FunctionDefinition
+    ) -> bool:
         current_text = params_text
         keys = list(func.parameters.keys())
 
@@ -60,36 +93,51 @@ class JSONDecoder(BaseModel):
             param_type = func.parameters[key].type
             key_prefix = f'"{key}": '
 
-            if current_text == "": return True
+            if current_text == "":
+                return True
             if len(current_text) <= len(key_prefix):
                 return key_prefix.startswith(current_text)
             if not current_text.startswith(key_prefix):
                 return False
 
             current_text = current_text[len(key_prefix):]
-            if current_text == "": return True
+            if current_text == "":
+                return True
 
             if param_type == "number":
-                val_str = ""
-                for char in current_text:
-                    if char in "0123456789.-":
-                        val_str += char
-                    else:
-                        break
-                if len(val_str) == 0 and current_text[0] not in "0123456789.-":
+                match = _NUM_PATTERN.match(current_text)
+                if match:
+                    val_str = match.group(0)
+                    current_text = current_text[len(val_str):]
+                else:
+                    if _PARTIAL_NUM_PATTERN.match(current_text):
+                        return True
                     return False
-                current_text = current_text[len(val_str):]
 
             elif param_type == "string":
                 if not current_text.startswith('"'):
                     return False
-                end_quote_idx = current_text.find('"', 1)
-                if end_quote_idx == -1:
+                idx = 1
+                escaped = False
+                in_string = True
+                while idx < len(current_text):
+                    if escaped:
+                        escaped = False
+                    elif current_text[idx] == "\\":
+                        escaped = True
+                    elif current_text[idx] == '"':
+                        in_string = False
+                        idx += 1
+                        break
+                    idx += 1
+                if in_string:
                     return True
-                current_text = current_text[end_quote_idx + 1:]
+                current_text = current_text[idx:]
 
             elif param_type == "boolean":
-                if "true".startswith(current_text) or "false".startswith(current_text):
+                if "true".startswith(current_text) or "false".startswith(
+                    current_text
+                ):
                     return True
                 if current_text.startswith("true"):
                     current_text = current_text[4:]
@@ -98,10 +146,10 @@ class JSONDecoder(BaseModel):
                 else:
                     return False
 
-            if current_text == "": return True
+            if current_text == "":
+                return True
 
             suffix = ", " if i < len(keys) - 1 else "}}"
-
             if len(current_text) <= len(suffix):
                 return suffix.startswith(current_text)
             if not current_text.startswith(suffix):
@@ -111,13 +159,12 @@ class JSONDecoder(BaseModel):
 
         return current_text == ""
 
-    def apply_mask(self, logits: List[float], allowed_ids: List[int]) -> List[float]:
-        masked_logits = []
-        allowed_set = set(allowed_ids)
-
-        for i, logit in enumerate(logits):
-            if i in allowed_set:
-                masked_logits.append(logit)
-            else:
-                masked_logits.append(float('-inf'))
+    def apply_mask(
+        self, logits: List[float], allowed_ids: List[int]
+    ) -> List[float]:
+        # Otimização: Mapeamento de O(n) em vez de iteração cega em Set
+        masked_logits = [float("-inf")] * len(logits)
+        for allowed_id in allowed_ids:
+            if allowed_id < len(logits):
+                masked_logits[allowed_id] = logits[allowed_id]
         return masked_logits
