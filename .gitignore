@@ -1,0 +1,28 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual Environments (criados pelo uv)
+.venv/
+venv/
+env/
+
+# Caches (gerados pelo make lint)
+.mypy_cache/
+.pytest_cache/
+
+# Project specific - PROIBIDO ENVIAR PARA O GIT
+data/output/
+
+# OS generated files
+.DS_Store
+
+# IDEs / Editores
+.vscode/
+.idea/
