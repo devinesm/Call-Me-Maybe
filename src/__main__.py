@@ -4,6 +4,8 @@ import json
 from src.schemas import FunctionDefinition, PromptInput
 from typing import List, Dict
 from llm_sdk import Small_LLM_Model
+from src.constrained import JSONDecoder
+import numpy as np
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Call Me Maybe - LLM Function Calling Tool")
@@ -81,12 +83,35 @@ def main() -> None:
     print(f"[✔] Vocabulary successfully loaded. Total tokens: {len(vocab)}")
 
     if prompts:
-        first_prompt = prompts[0].prompt
-        print(f"\n[INFO] Encoding the prompt: '{first_prompt}'")
-        input_ids = llm.encode(first_prompt)
-        print(f"[✔] Encoded prompt! First tokens (IDs): {input_ids[:10]}")
+        prompt_text = prompts[0].prompt
+        print(f"\n[INFO] Resolving: '{prompt_text}'")
 
-    print("\n[✔] Setup and LLM ready to proceed to generation!")
+        tensor_ids = llm.encode(prompt_text)
+        input_ids = tensor_ids[0].tolist()
+
+        decoder = JSONDecoder(vocab=vocab)
+        generated_ids = []
+
+        print("\n[INFO] Starting token-by-token generation...")
+
+        id_to_str = {v: k for k, v in vocab.items()}
+
+        for step in range(15):
+            logits = llm.get_logits_from_input_ids(input_ids)
+
+            allowed_tokens = decoder.get_allowed_tokens(generated_ids)
+
+            masked_logits = decoder.apply_mask(logits, allowed_tokens)
+
+            next_token_id = int(np.argmax(masked_logits))
+
+            generated_ids.append(next_token_id)
+            input_ids.append(next_token_id)
+
+            token_str = id_to_str[next_token_id]
+            print(f"  Step {step+1}: Generated -> {token_str}")
+
+        print("\n[✔] Test generation complete!")
 
 
 if __name__ == "__main__":
