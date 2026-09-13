@@ -26,6 +26,3 @@ lint:
 
 lint-strict:
 	uv run flake8 src/ && uv run mypy src/ --strict
-
-strict:
-	$(MAKE) lint-strict
