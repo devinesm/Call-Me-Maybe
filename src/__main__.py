@@ -64,6 +64,19 @@ def load_vocabulary(vocab_path: str) -> Dict[str, int]:
         sys.exit(1)
 
 
+def build_context_prompt(user_query: str, functions: List[FunctionDefinition]) -> str:
+    funcs_json = json.dumps([f.model_dump() for f in functions], indent=2)
+
+    prompt = (
+        "You are an AI assistant. Your task is to output a JSON object to call a function.\n"
+        f"Available functions:\n{funcs_json}\n\n"
+        f"User request: {user_query}\n"
+        "Output the exact JSON function call.\n"
+        "JSON:\n"
+    )
+    return prompt
+
+
 def main() -> None:
     args = parse_arguments()
 
@@ -83,39 +96,57 @@ def main() -> None:
     print(f"[✔] Vocabulary successfully loaded. Total tokens: {len(vocab)}")
 
     if prompts:
-        prompt_text = prompts[0].prompt
-        print(f"\n[INFO] Resolving: '{prompt_text}'")
-
-        tensor_ids = llm.encode(prompt_text)
-        input_ids = tensor_ids[0].tolist()
-
-        func_names = [f.name for f in functions_def]
-        decoder = JSONDecoder(vocab=vocab, valid_functions=func_names)
-        generated_ids = []
-
-        print("\n[INFO] Starting token-by-token generation...")
-
+        decoder = JSONDecoder(vocab=vocab, functions=functions_def)
+        results = []
         id_to_str = {v: k for k, v in vocab.items()}
 
-        generated_text = ""
-        for step in range(15):
-            logits = llm.get_logits_from_input_ids(input_ids)
+        print(f"\n[INFO] Starting automation for {len(prompts)} prompts...")
 
-            allowed_tokens = decoder.get_allowed_tokens(generated_text)
+        for p_idx, prompt_obj in enumerate(prompts):
+            prompt_text = prompt_obj.prompt
+            print(f"\n[{p_idx+1}/{len(prompts)}] Resolving: '{prompt_text}'")
 
-            masked_logits = decoder.apply_mask(logits, allowed_tokens)
+            full_prompt = build_context_prompt(prompt_text, functions_def)
+            tensor_ids = llm.encode(full_prompt)
+            input_ids = tensor_ids[0].tolist()
 
-            next_token_id = int(np.argmax(masked_logits))
+            generated_ids = []
+            generated_text = ""
 
-            generated_ids.append(next_token_id)
-            input_ids.append(next_token_id)
+            while len(generated_ids) < 100:
+                logits = llm.get_logits_from_input_ids(input_ids)
+                allowed_tokens = decoder.get_allowed_tokens(generated_text)
+                masked_logits = decoder.apply_mask(logits, allowed_tokens)
 
-            token_str = id_to_str[next_token_id]
-            print(f"  Step {step+1}: Generated -> {token_str}")
-            clean_token = token_str.replace("Ġ", " ")
-            generated_text += clean_token
+                next_token_id = int(np.argmax(masked_logits))
 
-        print("\n[✔] Test generation complete!")
+                generated_ids.append(next_token_id)
+                input_ids.append(next_token_id)
+
+                token_str = id_to_str[next_token_id]
+                clean_token = token_str.replace("Ġ", " ")
+                generated_text += clean_token
+
+                print(generated_text, end="\r")
+
+                if generated_text.endswith("}}"):
+                    break
+
+            print(f"\n[+] Generated successfully: {generated_text}")
+
+            try:
+                parsed_json = json.loads(generated_text)
+                results.append({
+                    "prompt": prompt_text,
+                    "name": parsed_json["name"],
+                    "parameters": parsed_json["parameters"]
+                })
+            except json.JSONDecodeError:
+                print(f"[WARNING] Model failed to generate valid JSON for prompt {p_idx+1}")
+
+        with open(args.output, 'w', encoding='utf-8') as out_f:
+            json.dump(results, out_f, indent=4)
+        print(f"\n[✔] All prompts processed! Output saved to: {args.output}")
 
 
 if __name__ == "__main__":
