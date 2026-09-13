@@ -89,17 +89,19 @@ def main() -> None:
         tensor_ids = llm.encode(prompt_text)
         input_ids = tensor_ids[0].tolist()
 
-        decoder = JSONDecoder(vocab=vocab)
+        func_names = [f.name for f in functions_def]
+        decoder = JSONDecoder(vocab=vocab, valid_functions=func_names)
         generated_ids = []
 
         print("\n[INFO] Starting token-by-token generation...")
 
         id_to_str = {v: k for k, v in vocab.items()}
 
+        generated_text = ""
         for step in range(15):
             logits = llm.get_logits_from_input_ids(input_ids)
 
-            allowed_tokens = decoder.get_allowed_tokens(generated_ids)
+            allowed_tokens = decoder.get_allowed_tokens(generated_text)
 
             masked_logits = decoder.apply_mask(logits, allowed_tokens)
 
@@ -110,6 +112,8 @@ def main() -> None:
 
             token_str = id_to_str[next_token_id]
             print(f"  Step {step+1}: Generated -> {token_str}")
+            clean_token = token_str.replace("Ġ", " ")
+            generated_text += clean_token
 
         print("\n[✔] Test generation complete!")
 
