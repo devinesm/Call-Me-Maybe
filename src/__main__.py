@@ -2,7 +2,8 @@ import argparse
 import sys
 import json
 from src.schemas import FunctionDefinition, PromptInput
-from typing import List
+from typing import List, Dict
+from llm_sdk import Small_LLM_Model
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Call Me Maybe - LLM Function Calling Tool")
@@ -52,6 +53,15 @@ def load_and_validate_prompts(filepath: str) -> List[PromptInput]:
         sys.exit(1)
 
 
+def load_vocabulary(vocab_path: str) -> Dict[str, int]:
+    try:
+        with open(vocab_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to load vocabulary from {vocab_path}: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     args = parse_arguments()
 
@@ -63,7 +73,20 @@ def main() -> None:
 
     print(f"Output will be saved to: {args.output}")
 
-    print("\n[✔] Argument parsing and file loading setup is ready!")
+    print("\n[INFO] Starting Small_LLM_Model...")
+    llm = Small_LLM_Model()
+
+    vocab_path = llm.get_path_to_vocab_file()
+    vocab = load_vocabulary(vocab_path)
+    print(f"[✔] Vocabulary successfully loaded. Total tokens: {len(vocab)}")
+
+    if prompts:
+        first_prompt = prompts[0].prompt
+        print(f"\n[INFO] Encoding the prompt: '{first_prompt}'")
+        input_ids = llm.encode(first_prompt)
+        print(f"[✔] Encoded prompt! First tokens (IDs): {input_ids[:10]}")
+
+    print("\n[✔] Setup and LLM ready to proceed to generation!")
 
 
 if __name__ == "__main__":
