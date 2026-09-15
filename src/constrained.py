@@ -21,11 +21,9 @@ class JSONDecoder(BaseModel):
 
     _clean_vocab: Dict[int, str] = PrivateAttr(default_factory=dict)
 
-    def model_post_init(self, __context: object) -> None:
-        for token_str, token_id in self.vocab.items():
-            self._clean_vocab[token_id] = (
-                token_str.replace("Ġ", " ").replace(" ", " ")
-            )
+    def model_post_init(self, __context) -> None:
+        for t_str, t_id in self.vocab.items():
+            self._clean_vocab[t_id] = t_str.replace("Ġ", " ").replace(" ", " ")
 
     def get_clean_token(self, token_id: int) -> str:
         return self._clean_vocab.get(token_id, "")
@@ -40,7 +38,7 @@ class JSONDecoder(BaseModel):
 
         if not allowed_ids:
             raise ValueError(
-                f"Deadlock! LLM tentou caminho inválido em: {generated_text}"
+                f"Deadlock! {generated_text}"
             )
 
         return allowed_ids
@@ -162,7 +160,6 @@ class JSONDecoder(BaseModel):
     def apply_mask(
         self, logits: List[float], allowed_ids: List[int]
     ) -> List[float]:
-        # Otimização: Mapeamento de O(n) em vez de iteração cega em Set
         masked_logits = [float("-inf")] * len(logits)
         for allowed_id in allowed_ids:
             if allowed_id < len(logits):

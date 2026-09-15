@@ -1,23 +1,24 @@
 [project]
-name = "call-me-maybe"
+name = "intra-uuid-a2be7c7c-072c-4242-a473-1a8f83e9bbdb-7583412-ipinto-m"
 version = "0.1.0"
-description = "Call Me Maybe - LLM Function Calling Tool"
+description = "Add your description here"
 readme = "README.md"
 authors = [
     { name = "ipinto-m", email = "ipinto-m@student.42porto.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "accelerate>=1.15.0",
     "llm-sdk",
-    "numpy",
-    "pydantic",
+    "numpy>=2.2.6",
+    "pydantic>=2.13.5",
 ]
 
 [project.scripts]
-call-me-maybe2 = "call_me_maybe2:main"
+intra-uuid-a2be7c7c-072c-4242-a473-1a8f83e9bbdb-7583412-ipinto-m = "intra_uuid_a2be7c7c_072c_4242_a473_1a8f83e9bbdb_7583412_ipinto_m:main"
 
 [build-system]
-requires = ["uv_build>=0.12.1,<0.13.0"]
+requires = ["uv_build>=0.12.7,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.workspace]
@@ -29,12 +30,10 @@ members = [
 llm-sdk = { workspace = true }
 
 [tool.mypy]
-python_version = "3.14"
-explicit_package_bases = true
-mypy_path = ["llm_sdk"]
 
-[dependency-groups]
-dev = [
-    "flake8>=7.3.0",
-    "mypy>=2.3.1",
-]
+[[tool.mypy.overrides]]
+module = "llm_sdk.*"
+ignore_errors = true
+
+[tool.uv]
+package = false

@@ -63,17 +63,18 @@ def load_vocabulary(vocab_path: str) -> Dict[str, int]:
         sys.exit(1)
 
 
-def build_context_prompt(
-    user_query: str, functions: List[FunctionDefinition]
-) -> str:
-    simplified_funcs = [
-        {"name": function.name, "description": function.description}
-        for function in functions
+def build_context_prompt(user_query: str, functions: List[FunctionDefinition]) -> str:
+    compact_funcs = [
+        {
+            "name": f.name,
+            "parameters": {k: v.type for k, v in f.parameters.items()}
+        }
+        for f in functions
     ]
+    
     return (
         "You are an AI assistant. Output a JSON object to call a function.\n"
-        "Available functions:\n"
-        f"{json.dumps(simplified_funcs, indent=2)}\n\n"
+        f"Functions: {json.dumps(compact_funcs)}\n\n"
         f"Request: {user_query}\nJSON:\n"
     )
 
