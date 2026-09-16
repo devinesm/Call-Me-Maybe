@@ -115,22 +115,31 @@ class JSONDecoder(BaseModel):
             elif param_type == "string":
                 if not current_text.startswith('"'):
                     return False
-                idx = 1
-                escaped = False
+
+                if '{"name"' in current_text:
+                    return False
+
                 in_string = True
-                while idx < len(current_text):
-                    if escaped:
-                        escaped = False
-                    elif current_text[idx] == "\\":
-                        escaped = True
-                    elif current_text[idx] == '"':
-                        in_string = False
-                        idx += 1
+                pos = 1
+                while True:
+                    pos = current_text.find('"', pos)
+                    if pos == -1:
                         break
-                    idx += 1
+
+                    bs = 0
+                    idx = pos - 1
+                    while idx >= 0 and current_text[idx] == '\\':
+                        bs += 1
+                        idx -= 1
+
+                    if bs % 2 == 0:
+                        in_string = False
+                        current_text = current_text[pos + 1:]
+                        break
+                    pos += 1
+
                 if in_string:
                     return True
-                current_text = current_text[idx:]
 
             elif param_type == "boolean":
                 if "true".startswith(current_text) or "false".startswith(
