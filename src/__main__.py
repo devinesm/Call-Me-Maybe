@@ -160,15 +160,28 @@ def main() -> None:
 
             try:
                 parsed_json = json.loads(generated_text)
+                params = parsed_json.get("parameters", {})
+
+                if isinstance(params, dict):
+                    for k, v in params.items():
+                        if type(v) is int and not isinstance(v, bool):
+                            params[k] = float(v)
+
                 results.append(
                     {
                         "prompt": prompt_text,
-                        "name": parsed_json["name"],
-                        "parameters": parsed_json["parameters"],
+                        "name": parsed_json.get("name", "fn_not_found"),
+                        "parameters": params,
                     }
                 )
             except json.JSONDecodeError:
-                pass
+                results.append(
+                    {
+                        "prompt": prompt_text,
+                        "name": "fn_not_found",
+                        "parameters": {}
+                    }
+                )
 
         with open(args.output, "w", encoding="utf-8") as out_f:
             json.dump(results, out_f, indent=4)

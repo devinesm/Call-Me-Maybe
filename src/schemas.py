@@ -1,10 +1,10 @@
-from typing import Dict, Literal
+from typing import Dict, Any
 
 from pydantic import BaseModel
 
 
 class ParameterInfo(BaseModel):
-    type: Literal["number", "string", "boolean"]
+    type: Any
 
 
 class FunctionDefinition(BaseModel):
