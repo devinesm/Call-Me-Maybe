@@ -1,9 +1,6 @@
 PYTHON = uv run python
 MODULE = src
 
-export HF_HOME = /goinfre/$(USER)/hf_cache
-export UV_CACHE_DIR = /goinfre/$(USER)/uv_cache
-
 .PHONY: install run debug clean lint lint-strict
 
 install:
