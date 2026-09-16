@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Dict, List
+from typing import Dict, List, Any
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -21,7 +21,7 @@ class JSONDecoder(BaseModel):
 
     _clean_vocab: Dict[int, str] = PrivateAttr(default_factory=dict)
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: Any) -> None:
         for t_str, t_id in self.vocab.items():
             self._clean_vocab[t_id] = t_str.replace("Ġ", " ").replace(" ", " ")
 

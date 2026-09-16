@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from llm_sdk import Small_LLM_Model
+from llm_sdk import Small_LLM_Model  # type: ignore
 from src.constrained import JSONDecoder
 from src.schemas import FunctionDefinition, PromptInput
 
@@ -63,7 +63,8 @@ def load_vocabulary(vocab_path: str) -> Dict[str, int]:
         sys.exit(1)
 
 
-def build_context_prompt(user_query: str, functions: List[FunctionDefinition]) -> str:
+def build_context_prompt(user_query: str,
+                         functions: List[FunctionDefinition]) -> str:
     compact_funcs = []
     for f in functions:
         params_info = {
@@ -75,14 +76,17 @@ def build_context_prompt(user_query: str, functions: List[FunctionDefinition]) -
     funcs_str = json.dumps(compact_funcs, indent=2)
 
     return (
-        "You are a precise AI. Output ONLY a valid JSON object to call the appropriate function.\n\n"
+        "You are a precise AI. Output ONLY a valid JSON object"
+        "to call the appropriate function.\n\n"
         f"Functions:\n{funcs_str}\n\n"
         "Example 1:\n"
         "User: What is the sum of 5 and 10?\n"
         'JSON: {"name": "fn_add_numbers", "parameters": {"a": 5, "b": 10}}\n\n'
         "Example 2:\n"
         "User: Replace vowels in 'Apple' with X\n"
-        'JSON: {"name": "fn_substitute_string_with_regex", "parameters": {"source_string": "Apple", "regex": "([aeiouAEIOU])", "replacement": "X"}}\n\n'
+        'JSON: {"name": "fn_substitute_string_with_regex", "parameters":'
+        ' {"source_string": "Apple", "regex": "([aeiouAEIOU])",'
+        ' "replacement": "X"}}\n\n'
         "Example 3:\n"
         "User: What is the capital of France?\n"
         'JSON: {"name": "fn_not_found", "parameters": {}}\n\n'
@@ -100,7 +104,8 @@ def main() -> None:
 
     fallback_func = FunctionDefinition(**{
         "name": "fn_not_found",
-        "description": "Call this function if the user request is completely unrelated to the other available functions.",
+        "description": "Call this function if the user request is "
+        "completely unrelated to the other available functions.",
         "parameters": {},
         "returns": {"type": "string"}
     })
