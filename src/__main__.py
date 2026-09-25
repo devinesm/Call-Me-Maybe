@@ -67,29 +67,16 @@ def build_context_prompt(user_query: str,
                          functions: List[FunctionDefinition]) -> str:
     compact_funcs = []
     for f in functions:
-        params_info = {
-            k: (getattr(v, "description", None) or v.type)
-            for k, v in f.parameters.items()
-        }
-        compact_funcs.append({"name": f.name, "parameters": params_info})
+        compact_funcs.append({
+            "name": f.name,
+            "parameters": {k: v.type for k, v in f.parameters.items()}
+        })
 
-    funcs_str = json.dumps(compact_funcs, indent=2)
+    funcs_str = json.dumps(compact_funcs)
 
     return (
-        "You are a precise AI. Output ONLY a valid JSON object"
-        "to call the appropriate function.\n\n"
-        f"Functions:\n{funcs_str}\n\n"
-        "Example 1:\n"
-        "User: What is the sum of 5 and 10?\n"
-        'JSON: {"name": "fn_add_numbers", "parameters": {"a": 5, "b": 10}}\n\n'
-        "Example 2:\n"
-        "User: Replace vowels in 'Apple' with X\n"
-        'JSON: {"name": "fn_substitute_string_with_regex", "parameters":'
-        ' {"source_string": "Apple", "regex": "([aeiouAEIOU])",'
-        ' "replacement": "X"}}\n\n'
-        "Example 3:\n"
-        "User: What is the capital of France?\n"
-        'JSON: {"name": "fn_not_found", "parameters": {}}\n\n'
+        "Call the appropriate function using this JSON schema.\n"
+        f"Functions: {funcs_str}\n"
         f"User: {user_query}\n"
         "JSON:\n"
     )
@@ -101,16 +88,6 @@ def main() -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     functions_def = load_and_validate_functions(args.functions_definition)
-
-    fallback_func = FunctionDefinition(**{
-        "name": "fn_not_found",
-        "description": "Call this function if the user request is "
-        "completely unrelated to the other available functions.",
-        "parameters": {},
-        "returns": {"type": "string"}
-    })
-    functions_def.append(fallback_func)
-
     prompts = load_and_validate_prompts(args.input)
 
     print("\n[INFO] Starting Small_LLM_Model...")
@@ -139,7 +116,7 @@ def main() -> None:
                 try:
                     allowed_tokens = decoder.get_allowed_tokens(generated_text)
                 except ValueError as exc:
-                    print(f"\n[ERROR] {exc}")
+                    print(f"\n[ERROR] Generation halted: {exc}")
                     break
 
                 masked_logits = decoder.apply_mask(logits, allowed_tokens)
@@ -175,6 +152,8 @@ def main() -> None:
                     }
                 )
             except json.JSONDecodeError:
+                print("[ALERT] No valid function association found for prompt."
+                      " Applying fallback 'fn_not_found'.")
                 results.append(
                     {
                         "prompt": prompt_text,
